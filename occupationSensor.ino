@@ -17,5 +17,5 @@ void loop() {
   if(state == LOW){
   Serial.println("OBJECT DETECTED"); //SOMETHING IN THE WAY
   }
-
+//test
 }
