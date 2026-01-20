@@ -4,6 +4,16 @@ int count = 0;
 int state;
 unsigned long startTime; 
 unsigned long elapsedTime;
+unsigned long timeout;
+int Astate, Bstate;
+int prevAstate = HIGH;
+int prevBstate = HIGH;
+
+
+// 0 = idle
+// 1 = A first (entering)
+// 2 = B first (exiting)
+// 3 = wait-for-clear (lockout)
 
 void setup() {
   // put your setup code here, to run once:
@@ -14,50 +24,65 @@ void setup() {
 
 }
 
-// 0 = nothing happened, 1 = A broke first, 2 = B broke first
+
 void loop() {
 
-  int Astate = digitalRead(A);
-  int Bstate = digitalRead(B);
+  Astate = digitalRead(A);
+  Bstate = digitalRead(B);
   elapsedTime = millis() - startTime;
 
+//--------------IDLE---------------
   if(state == 0){ //initial state
-    if(Astate == LOW){
-      startTime = millis();
+    if(Astate == LOW && prevAstate == HIGH){
       state = 1;
-      Serial.println("A BEAM BROKEN");
-    }
-
-    else if(Bstate == LOW){
       startTime = millis();
+      //Serial.println("A BEAM BROKEN FIRST");
+    }
+
+    else if(Bstate == LOW && prevBstate == HIGH){
       state = 2;
-      Serial.println("B BEAM BROKEN");     
+      startTime = millis();
+      //Serial.println("B BEAM BROKEN FIRST");     
     }
   }
 
+//-------------ENTERING----------------
   else if(state == 1){ //for entering
-    if(elapsedTime <= 800 && Bstate == LOW){
+    if(elapsedTime <= 800 && Bstate == LOW && prevBstate == HIGH){
       count++;
-      state = 0;
       Serial.print("Occupancy Count = ");
       Serial.println(count);
+      timeout = millis();
+      state = 3;
     }
-    else if(Astate == HIGH && Bstate == HIGH){ //both beams clear
+    else if(elapsedTime > 800){//} || (Astate == HIGH && Bstate == HIGH)){ //both beams clear
       state = 0;
     } 
   }
 
+
+//--------------EXITING-------------------
   else if(state == 2){ //for exiting
-    if(elapsedTime <= 800 && Astate == LOW){
+    if(elapsedTime <= 800 && Astate == LOW && prevAstate == HIGH){
       if(count>0) count--;
-      state = 0;
       Serial.print("Occupancy Count = ");
       Serial.println(count);
+      timeout = millis();
+      state = 3;
     }
-    else if(Astate == HIGH && Bstate == HIGH){ //both beams clear
+    else if(elapsedTime > 800){// || (Astate == HIGH && Bstate == HIGH)){ //both beams clear
       state = 0;
     } 
-  }  
+  }
+  
+  else if (state == 3) {   // WAIT FOR CLEAR
+    if (Astate == HIGH && Bstate == HIGH && ((millis() - timeout) >= 500)) {
+      state = 0;
+      startTime = millis(); //reset timing
+    }
+  }
 
+  prevAstate = Astate;
+  prevBstate = Bstate;
 
 }
